@@ -10,8 +10,7 @@ import {
 const firebaseConfig = {
   apiKey: "AIzaSyBK2pCmtWpVd0L4Y4DWuEvJ1dGi4ByIz4s",
   authDomain: "aircraft-monitoring-syst-dc5dc.firebaseapp.com",
-  databaseURL:
-    "https://aircraft-monitoring-syst-dc5dc-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL: "https://aircraft-monitoring-syst-dc5dc-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "aircraft-monitoring-syst-dc5dc",
   storageBucket: "aircraft-monitoring-syst-dc5dc.appspot.com",
   messagingSenderId: "320070089409",
@@ -23,97 +22,101 @@ const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 // Reference to the sensor data in the database
-const sensorRef = ref(database, "Sensors/sensor123"); // Update to your specific sensor path
+const sensorRef = ref(database, "Sensors/sensor123");
 
-// Real-time listener for sensor data (Temperature and Humidity)
-onValue(sensorRef, (snapshot) => {
-  const data = snapshot.val();
-  if (data) {
-    // Update temperature and humidity
-    document.getElementById("humidity").innerHTML = `${data.Humidity}%`;
-    document.getElementById(
-      "temperature"
-    ).innerHTML = `${data.Temperature}&deg;C`;
-
-    // Update ultrasonic sensor data for radar chart
-    radarChart.data.datasets[0].data = data.Ultrasonic || [
-      5, 10, 15, 20, 25, 30, 35,
-    ]; // Add fallback data
-    radarChart.update();
-  }
-});
-
-// Initialize the radar chart (after sensorRef declaration)
+// Initialize the line chart
 const ctx = document.getElementById("ultrasonicChart").getContext("2d");
 
 // Add shadow effect to the canvas
-ctx.shadowColor = "rgba(0, 0, 0, 0.5)"; // Shadow color
-ctx.shadowBlur = 10; // Blur amount
-ctx.shadowOffsetX = 5; // Horizontal shadow offset
-ctx.shadowOffsetY = 5; // Vertical shadow offset
+ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+ctx.shadowBlur = 15;
+ctx.shadowOffsetX = 5;
+ctx.shadowOffsetY = 5;
 
-const radarChart = new Chart(ctx, {
-  type: "radar",
+const ultrasonicChart = new Chart(ctx, {
+  type: "line",
   data: {
-    labels: ["0°", "30°", "60°", "90°", "120°", "150°", "180°"],
+    labels: [], // Initialize empty labels
     datasets: [
       {
         label: "Distance (cm)",
-        data: [5, 10, 15, 20, 25, 30, 35],
-        backgroundColor: "rgba(0, 255, 0, 0.4)", // Light green background
-        borderColor: "rgba(0, 255, 0, 1)", // Green border
-        borderWidth: 3, // Thicker border for better visibility
-        pointBackgroundColor: "rgba(0, 255, 0, 1)", // Point color
-        pointBorderColor: "#fff", // Point border color
-        pointHoverBackgroundColor: "#ffcc00", // Hover color for points
-        pointHoverBorderColor: "#fff", // Hover border for points
-        pointRadius: 5, // Size of points
-        pointHoverRadius: 7, // Size of points on hover
+        data: [], // Initialize empty data array
+        backgroundColor: "rgba(0, 255, 0, 0.4)", 
+        borderColor: "rgba(0, 255, 0, 1)", // Green border initially
+        borderWidth: 3,
+        pointBackgroundColor: "rgba(0, 255, 0, 1)",
+        pointBorderColor: "#fff",
+        pointRadius: 5,
+        pointHoverRadius: 8,
       },
     ],
   },
   options: {
     maintainAspectRatio: false,
-    aspectRatio: 2,
     scales: {
-      r: {
-        angleLines: {
-          color: "#ffffff", // White angle lines
-        },
-        grid: {
-          color: "#000000", // Bold dark black grid line
-        },
-        label: {
-          color: "#000000",
-        },
-        ticks: {
-          beginAtZero: true,
-          max: 50,
-          color: "#000000", // White tick labels
-          font: {
-            size: 14, // Font size for tick labels
-          },
-        },
+      x: {
         title: {
           display: true,
-          text: "Ultrasonic Sensor",
-          color: "#000000", // Title color
-          font: {
-            size: 16,
-            weight: "bold",
-          },
-          padding: {
-            top: 20,
-            bottom: 20,
-          },
+          text: 'Time',
+          color: '#ffffff'
         },
-        backgroundColor: "rgba(0, 0, 0, 0.5)", // Dark background for the radar area
+        ticks: {
+          color: '#ffffff'
+        }
       },
+      y: {
+        beginAtZero: true,
+        max: 50, // Adjust based on expected range
+        title: {
+          display: true,
+          text: 'Distance (cm)',
+          color: '#ffffff'
+        },
+        ticks: {
+          color: '#ffffff'
+        }
+      }
     },
     plugins: {
       legend: {
-        display: false, // Hiding legend since we're using a title
+        display: true,
+        labels: {
+          color: "#ffffff", // Legend text color
+        },
+      },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)", // Tooltip background
+        titleColor: "#ffffff",
+        bodyColor: "#ffffff",
       },
     },
   },
+});
+
+// Real-time listener for sensor data
+onValue(sensorRef, (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    // Update temperature and humidity
+    document.getElementById("humidity").innerHTML = `${data.Humidity}%`;
+    document.getElementById("temperature").innerHTML = `${data.Temperature}&deg;C`;
+
+    // Update the ultrasonic sensor reading in the card
+    const distance = data.Ultrasonic || 0; // Get the distance directly, default to 0 if not available
+    document.getElementById("ultrasonic").innerHTML = `${distance} cm`;
+
+    // Update the line chart with the ultrasonic reading
+    const time = new Date().toLocaleTimeString();
+    if (ultrasonicChart.data.labels.length >= 20) {
+      ultrasonicChart.data.labels.shift(); // Remove the oldest label
+      ultrasonicChart.data.datasets[0].data.shift(); // Remove the oldest data point
+    }
+    ultrasonicChart.data.labels.push(time); // Add new label
+    ultrasonicChart.data.datasets[0].data.push(distance); // Add new distance value
+
+    // Change line color based on the distance threshold
+    ultrasonicChart.data.datasets[0].borderColor = distance <= 15 ? "rgba(255, 0, 0, 1)" : "rgba(0, 255, 0, 1)"; // Red if <= 15, green otherwise
+
+    ultrasonicChart.update(); // Update the chart
+  }
 });
